@@ -2,9 +2,12 @@
 
 # block height closest to 6/2/2026:0000
 MIN_HEIGHT=935175
-OUTPUT_FILE="chanpoints_filtered.csv"
+OUTPUT_FILE="chanpoints.csv"
 
-echo "funding_txid,output_index,block_height" > "$OUTPUT_FILE"
+# Write header only if file doesn't exist
+if [ ! -f "$OUTPUT_FILE" ]; then
+    echo "funding_txid,output_index" > "$OUTPUT_FILE"
+fi
 
 lncli describegraph \
 | jq -r --argjson min "$MIN_HEIGHT" '
@@ -14,9 +17,11 @@ lncli describegraph \
     | (.channel_id | tonumber) as $cid
     | ($cid / 1099511627776 | floor) as $height
     | select($height >= $min)
-    | (.chan_point | split(":")) as $cp
-    | [$cp[0], $cp[1], $height]
-    | @csv
+    | (.chan_point | split(":"))
+    | join(",")
 ' >> "$OUTPUT_FILE"
 
 echo "Saved filtered chan_points to $OUTPUT_FILE"
+
+# remove duplicate channels
+awk -i inplace '!seen[$0]++' $OUTPUT_FILE
