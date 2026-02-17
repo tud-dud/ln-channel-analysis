@@ -1,14 +1,16 @@
 use std::{
-    fs::File,
-    io::Write,
+    error::Error,
+    fs::OpenOptions,
+    io::{Seek, SeekFrom},
     path::PathBuf,
     thread,
     time::{Duration, Instant},
 };
 
 use clap::Parser;
+use csv::WriterBuilder;
 use log::{LevelFilter, debug, error, info, trace};
-use types::{Channel, Properties, Tx};
+use types::{Channel, CsvRow, Properties, Tx};
 
 mod analysis;
 mod types;
@@ -35,8 +37,6 @@ fn main() {
         .expect("Failure creating {} directory for results.");
     let properties_file = PathBuf::from(opt.output_path.clone()).join("tx-properties.csv");
     info!("Analysis will be written to {}", properties_file.display());
-    let mut wtr = File::create_new(properties_file).expect("File already exists?");
-    writeln!(wtr, "num_outputs,num_p2wsh_outputs,num_p2tr_outputs,output_types,output_values,funding_types,funding_amounts").expect("failed to write header");
     info!("Querying API for {} channels", channels.len());
     for channel in channels.iter() {
         trace!("Querying API for {}", channel.funding_txid);
@@ -52,7 +52,7 @@ fn main() {
                     if let Some(tx) = Tx::from_json_str(&text) {
                         debug!("Analysing properties of tx {}", tx.txid);
                         let property = analysis::analyse_tx(tx);
-                        write_to_file(&property, &mut wtr);
+                        let _ = write_to_file(&property, &properties_file);
                     }
                 }
                 Err(e) => error!("Error getting text from response: {e}"),
@@ -70,41 +70,53 @@ fn main() {
     )
 }
 
-fn write_to_file(property: &Properties, wtr: &mut File) {
-    let output_types = property
+fn write_to_file(property: &Properties, path: &PathBuf) -> Result<(), Box<dyn Error>> {
+    let mut file = OpenOptions::new().create(true).append(true).open(path)?;
+    let needs_headers = file.seek(SeekFrom::End(0))? == 0;
+
+    let mut wtr = WriterBuilder::new()
+        .has_headers(needs_headers)
+        .quote_style(csv::QuoteStyle::Necessary)
+        .from_writer(file);
+
+    let output_types: Vec<String> = property
         .type_output_value
         .iter()
-        .map(|(t, _)| t.clone())
-        .collect::<Vec<_>>()
-        .join(",");
-    let output_values = property
-        .type_output_value
-        .iter()
-        .map(|(_, v)| v.to_string())
-        .collect::<Vec<_>>()
-        .join(",");
-    let funding_types = property
+        .map(|(t, _)| t.to_owned())
+        .collect();
+
+    let output_values: Vec<u64> = property.type_output_value.iter().map(|(_, v)| *v).collect();
+
+    let funding_types: Vec<String> = property
         .type_amt_funding_addresses
         .iter()
-        .map(|(t, _)| t.clone())
-        .collect::<Vec<_>>()
-        .join(",");
-    let funding_amounts = property
+        .map(|(t, _)| t.to_owned())
+        .collect();
+
+    let funding_amounts: Vec<u64> = property
         .type_amt_funding_addresses
         .iter()
-        .map(|(_, v)| v.to_string())
-        .collect::<Vec<_>>()
-        .join(",");
-    writeln!(
-        wtr,
-        "{},{},{},{},{},{},{}",
-        property.num_outputs,
-        property.num_p2wsh_outputs,
-        property.num_p2tr_outputs,
-        output_types,
-        output_values,
-        funding_types,
-        funding_amounts
-    )
-    .expect("Failure writing property to file");
+        .map(|(_, v)| *v)
+        .collect();
+
+    let row = CsvRow {
+        num_outputs: property.num_outputs,
+        num_p2wsh_outputs: property.num_p2wsh_outputs,
+        num_p2tr_outputs: property.num_p2tr_outputs,
+        output_types: output_types.join("|"),
+        output_values: output_values
+            .iter()
+            .map(|v| v.to_string())
+            .collect::<Vec<_>>()
+            .join("|"),
+        funding_types: funding_types.join("|"),
+        funding_amounts: funding_amounts
+            .iter()
+            .map(|a| a.to_string())
+            .collect::<Vec<_>>()
+            .join("|"),
+    };
+
+    wtr.serialize(row)?;
+    Ok(wtr.flush()?)
 }

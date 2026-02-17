@@ -27,6 +27,17 @@ pub(crate) struct Properties {
     pub(crate) type_amt_funding_addresses: Vec<(String, u64)>,
 }
 
+#[derive(Serialize)]
+pub(crate) struct CsvRow {
+    pub(crate) num_outputs: usize,
+    pub(crate) num_p2wsh_outputs: usize,
+    pub(crate) num_p2tr_outputs: usize,
+    pub(crate) output_types: String,
+    pub(crate) output_values: String,
+    pub(crate) funding_types: String,
+    pub(crate) funding_amounts: String,
+}
+
 #[derive(Debug, Deserialize)]
 pub(crate) struct Vin {
     #[serde(rename = "prevout")]
