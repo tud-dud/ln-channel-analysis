@@ -2,7 +2,7 @@ use csv::Reader;
 use log::info;
 use std::{collections::HashSet, path::PathBuf};
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, PartialEq, Eq, Hash)]
 pub(crate) struct Channel {
@@ -12,19 +12,31 @@ pub(crate) struct Channel {
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct Tx {
+    pub(crate) txid: String,
     pub(crate) vin: Vec<Vin>,
     pub(crate) vout: Vec<Vout>,
+}
+
+/// Propoerties for each analysed TX
+#[derive(Debug, Serialize)]
+pub(crate) struct Properties {
+    pub(crate) num_outputs: usize,
+    pub(crate) num_p2wsh_outputs: usize,
+    pub(crate) num_p2tr_outputs: usize,
+    pub(crate) type_output_value: Vec<(String, u64)>,
+    pub(crate) type_amt_funding_addresses: Vec<(String, u64)>,
 }
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct Vin {
     #[serde(rename = "prevout")]
-    prevout: Prevout,
+    pub(crate) prevout: Prevout,
 }
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct Prevout {
-    scriptpubkey_type: String,
+    pub(crate) scriptpubkey_type: String,
+    pub(crate) value: u64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -47,7 +59,7 @@ impl Channel {
 }
 
 impl Tx {
-    fn from_json_str(json: &str) -> Option<Self> {
+    pub(crate) fn from_json_str(json: &str) -> Option<Self> {
         serde_json::from_str(json).ok()
     }
 }
