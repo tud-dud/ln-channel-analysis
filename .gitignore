@@ -1,0 +1,6 @@
+/target
+test_data
+Cargo.lock
+**/*.rs.bk
+**/*.swp
+/results
