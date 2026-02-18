@@ -1,8 +1,13 @@
 use csv::Reader;
 use log::info;
-use std::{collections::HashSet, path::PathBuf};
+use std::{
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+};
 
 use serde::{Deserialize, Serialize};
+
+pub(crate) const MAX_SATOSHIS: u64 = 16777215;
 
 #[derive(Debug, Deserialize, PartialEq, Eq, Hash)]
 pub(crate) struct Channel {
@@ -17,25 +22,24 @@ pub(crate) struct Tx {
     pub(crate) vout: Vec<Vout>,
 }
 
-/// Propoerties for each analysed TX
-#[derive(Debug, Serialize)]
-pub(crate) struct Properties {
-    pub(crate) num_outputs: usize,
-    pub(crate) num_p2wsh_outputs: usize,
-    pub(crate) num_p2tr_outputs: usize,
-    pub(crate) type_output_value: Vec<(String, u64)>,
-    pub(crate) type_amt_funding_addresses: Vec<(String, u64)>,
-}
-
-#[derive(Serialize)]
-pub(crate) struct CsvRow {
-    pub(crate) num_outputs: usize,
-    pub(crate) num_p2wsh_outputs: usize,
-    pub(crate) num_p2tr_outputs: usize,
-    pub(crate) output_types: String,
-    pub(crate) output_values: String,
-    pub(crate) funding_types: String,
-    pub(crate) funding_amounts: String,
+#[derive(Debug, Default, Serialize)]
+pub(crate) struct Analysis {
+    pub(crate) total_num_txs: usize,
+    pub(crate) num_outputs_num_txs: HashMap<usize, usize>,
+    pub(crate) num_at_least_one_p2tr_output: usize,
+    pub(crate) num_at_least_one_p2wsh_output: usize,
+    pub(crate) num_single_p2wsh_output: usize,
+    pub(crate) num_single_p2tr_output: usize,
+    pub(crate) num_p2wsh_output_below_16m: usize,
+    // wumbo channels
+    pub(crate) num_p2wsh_output_above_16m: usize,
+    pub(crate) num_p2tr_output_below_16m: usize,
+    // wumbo channels
+    pub(crate) num_p2tr_output_above_16m: usize,
+    // legacy
+    pub(crate) num_funded_by_p2sh_address: usize,
+    pub(crate) num_funded_by_p2wpkh_address: usize,
+    pub(crate) num_funded_by_p2tr_address: usize,
 }
 
 #[derive(Debug, Deserialize)]
@@ -47,7 +51,6 @@ pub(crate) struct Vin {
 #[derive(Debug, Deserialize)]
 pub(crate) struct Prevout {
     pub(crate) scriptpubkey_type: String,
-    pub(crate) value: u64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -76,20 +79,12 @@ impl Tx {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
 
     use super::*;
 
-    #[test]
-    fn from_csv_to_channels() {
-        let path = PathBuf::from("test_data/toy_chanpoints.csv");
-        let actual = Channel::read_from_file(&path);
-        assert_eq!(actual.len(), 4);
-    }
-
-    #[test]
-    fn from_json_to_tx() {
-        let tx = r#"
+    pub(crate) fn tx_json() -> String {
+        r#"
             {
           "txid": "c9208b6b4059f42bc5d073bc79cb192b3b53411127a796a8659b204089167e3f",
           "version": 2,
@@ -139,8 +134,20 @@ mod tests {
             "block_hash": "000000000000000000011b8f1e0b4b13cb363758ad005958da68488be949a39c",
             "block_time": 1771315113
           }
-        }"#;
-        let actual = Tx::from_json_str(tx).unwrap();
+        }"#.to_owned()
+    }
+
+    #[test]
+    fn from_csv_to_channels() {
+        let path = PathBuf::from("test_data/toy_chanpoints.csv");
+        let actual = Channel::read_from_file(&path);
+        assert_eq!(actual.len(), 4);
+    }
+
+    #[test]
+    fn from_json_to_tx() {
+        let tx = tx_json();
+        let actual = Tx::from_json_str(&tx).unwrap();
         assert_eq!(actual.vin.len(), 1);
         assert_eq!(actual.vout.len(), 2);
         assert_eq!(actual.vout[0].scriptpubkey_type, "v0_p2wsh");
