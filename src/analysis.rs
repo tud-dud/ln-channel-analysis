@@ -20,63 +20,56 @@ pub(crate) fn analyse_txs(txs: &[Tx]) -> Analysis {
             .iter()
             .filter(|o| is_p2wsh(&o.scriptpubkey_type))
             .count();
-        let num_p2tr_outputs_below_16m = tx
-            .vout
-            .iter()
-            .filter(|o| is_p2tr(&o.scriptpubkey_type) && o.value <= MAX_SATOSHIS)
-            .count();
-        let num_p2tr_outputs_above_16m = num_p2tr_outputs - num_p2tr_outputs_below_16m;
         let num_p2wsh_outputs_below_16m = tx
             .vout
             .iter()
             .filter(|o| is_p2wsh(&o.scriptpubkey_type) && o.value <= MAX_SATOSHIS)
             .count();
-        let num_p2wsh_outputs_above_16m = num_p2wsh_outputs - num_p2wsh_outputs_below_16m;
         let funded_p2sh = tx.vin.iter().any(|i| is_p2sh(&i.prevout.scriptpubkey_type));
         let funded_p2tr = tx.vin.iter().any(|i| is_p2tr(&i.prevout.scriptpubkey_type));
         let funded_p2wpkh = tx
             .vin
             .iter()
             .any(|i| is_p2wpkh(&i.prevout.scriptpubkey_type));
+        if num_p2wsh_outputs > 0 {
+            analysis.original.num_at_least_one_p2wsh_output += 1;
+            if num_p2wsh_outputs == 1 {
+                analysis.original.num_single_p2wsh_output += 1;
+            }
+        }
+        if num_outputs <= 2 {
+            analysis.original.num_max_two_outputs += 1;
+        } else if num_p2wsh_outputs == num_outputs - 1 && num_p2tr_outputs == 1 {
+            analysis
+                .updated
+                .num_one_p2tr_and_more_than_two_p2wsh_output_address += 1;
+        }
+        if num_p2wsh_outputs_below_16m > 0 {
+            analysis.original.num_p2wsh_output_below_16m += 1;
+        }
+        if funded_p2sh || funded_p2wpkh {
+            analysis.original.num_funded_by_p2sh_or_p2wpkh_address += 1;
+        }
         analysis
+            .updated
             .num_outputs_num_txs
             .entry(num_outputs)
             .and_modify(|n| *n += 1)
             .or_insert(1);
+        if (funded_p2tr || funded_p2wpkh) && !funded_p2sh {
+            analysis.updated.num_funded_by_p2tr_or_p2wpkh_address += 1;
+        }
         if num_p2tr_outputs > 0 {
-            analysis.num_at_least_one_p2tr_output += 1;
+            analysis.updated.num_at_least_one_p2tr_output += 1;
             if num_p2tr_outputs == 1 {
-                analysis.num_single_p2tr_output += 1;
-            }
-            if num_p2tr_outputs_above_16m > 0 {
-                analysis.num_p2tr_output_above_16m += 1;
-            }
-            if num_p2tr_outputs_below_16m > 0 {
-                analysis.num_p2tr_output_below_16m += 1;
+                analysis.updated.num_single_p2tr_output += 1;
             }
         }
-        if num_p2wsh_outputs > 0 {
-            analysis.num_at_least_one_p2wsh_output += 1;
-            if num_p2wsh_outputs == 1 {
-                analysis.num_single_p2wsh_output += 1;
-            }
-            if num_p2wsh_outputs_above_16m > 0 {
-                analysis.num_p2wsh_output_above_16m += 1;
-            }
-            if num_p2wsh_outputs_below_16m > 0 {
-                analysis.num_p2wsh_output_below_16m += 1;
-            }
-        }
-        if funded_p2sh {
-            analysis.num_funded_by_p2sh_address += 1;
-        }
-        if funded_p2wpkh {
-            analysis.num_funded_by_p2wpkh_address += 1;
-        }
-        if funded_p2tr {
-            analysis.num_funded_by_p2tr_address += 1;
+        if num_p2tr_outputs + num_p2wsh_outputs == num_outputs {
+            analysis.updated.num_funding_output_p2tr_or_p2wsh_address += 1;
         }
     }
+
     analysis
 }
 
@@ -93,7 +86,7 @@ fn is_p2sh(scriptpubkey_type: &str) -> bool {
 }
 
 fn is_p2wpkh(scriptpubkey_type: &str) -> bool {
-    scriptpubkey_type.contains("p2wkh")
+    scriptpubkey_type.contains("p2wpkh")
 }
 #[cfg(test)]
 mod tests {
@@ -239,15 +232,22 @@ mod tests {
         txs.push(Tx::from_json_str(&types::tests::tx_json()).unwrap());
         let anaysis = analyse_txs(&txs);
         assert_eq!(anaysis.total_num_txs, 2);
-        assert_eq!(anaysis.num_outputs_num_txs, HashMap::from([(2, 2)]));
-        assert_eq!(anaysis.num_at_least_one_p2tr_output, 2);
-        assert_eq!(anaysis.num_at_least_one_p2wsh_output, 2);
-        assert_eq!(anaysis.num_p2wsh_output_below_16m, 2);
-        assert_eq!(anaysis.num_p2wsh_output_above_16m, 0);
-        assert_eq!(anaysis.num_p2tr_output_below_16m, 1);
-        assert_eq!(anaysis.num_p2tr_output_above_16m, 1);
-        assert_eq!(anaysis.num_funded_by_p2sh_address, 0);
-        assert_eq!(anaysis.num_funded_by_p2wpkh_address, 0);
-        assert_eq!(anaysis.num_funded_by_p2tr_address, 2);
+
+        assert_eq!(anaysis.original.num_at_least_one_p2wsh_output, 2);
+        assert_eq!(anaysis.original.num_max_two_outputs, 2);
+        assert_eq!(anaysis.original.num_single_p2wsh_output, 2);
+        assert_eq!(anaysis.original.num_p2wsh_output_below_16m, 2);
+        assert_eq!(anaysis.original.num_funded_by_p2sh_or_p2wpkh_address, 0);
+
+        assert_eq!(anaysis.updated.num_outputs_num_txs, HashMap::from([(2, 2)]));
+        assert_eq!(anaysis.updated.num_at_least_one_p2tr_output, 2);
+        assert_eq!(anaysis.updated.num_single_p2tr_output, 2);
+        assert_eq!(anaysis.updated.num_funded_by_p2tr_or_p2wpkh_address, 2);
+        assert_eq!(
+            anaysis
+                .updated
+                .num_one_p2tr_and_more_than_two_p2wsh_output_address,
+            0
+        );
     }
 }
