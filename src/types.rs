@@ -55,8 +55,8 @@ pub(crate) struct Updated {
     pub(crate) num_funded_by_p2tr_or_p2wpkh_address: usize,
     // all funding outputs as P2WSH or Taproot
     pub(crate) num_funding_output_p2tr_or_p2wsh_address: usize,
-    // tx with n>2 outputs where 1 is P2TR and n-1 P2WSH
-    pub(crate) num_one_p2tr_and_more_than_two_p2wsh_output_address: usize,
+    // tx with either n <=2 outputs or n>2 outputs where 1 is P2TR and n-1 P2WSH
+    pub(crate) num_either_at_most_two_or_one_p2tr_and_more_than_two_p2wsh_output_address: usize,
 }
 
 #[derive(Debug, Deserialize)]

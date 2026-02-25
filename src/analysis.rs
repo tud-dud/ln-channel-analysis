@@ -39,10 +39,13 @@ pub(crate) fn analyse_txs(txs: &[Tx]) -> Analysis {
         }
         if num_outputs <= 2 {
             analysis.original.num_max_two_outputs += 1;
-        } else if num_p2wsh_outputs == num_outputs - 1 && num_p2tr_outputs == 1 {
             analysis
                 .updated
-                .num_one_p2tr_and_more_than_two_p2wsh_output_address += 1;
+                .num_either_at_most_two_or_one_p2tr_and_more_than_two_p2wsh_output_address += 1;
+        } else if num_outputs > 2 && num_p2wsh_outputs == num_outputs - 1 && num_p2tr_outputs == 1 {
+            analysis
+                .updated
+                .num_either_at_most_two_or_one_p2tr_and_more_than_two_p2wsh_output_address += 1;
         }
         if num_p2wsh_outputs_below_16m > 0 {
             analysis.original.num_p2wsh_output_below_16m += 1;
@@ -246,8 +249,8 @@ mod tests {
         assert_eq!(
             anaysis
                 .updated
-                .num_one_p2tr_and_more_than_two_p2wsh_output_address,
-            0
+                .num_either_at_most_two_or_one_p2tr_and_more_than_two_p2wsh_output_address,
+            2
         );
     }
 }
