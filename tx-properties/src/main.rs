@@ -7,8 +7,9 @@ use std::{
 };
 
 use clap::Parser;
+use common::{Channel, Tx};
 use log::{LevelFilter, error, info, trace};
-use types::{Analysis, Channel, Tx};
+use types::Analysis;
 
 mod analysis;
 mod types;

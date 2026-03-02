@@ -1,6 +1,7 @@
 use log::debug;
 
-use crate::types::{Analysis, MAX_SATOSHIS, Tx};
+use crate::types::{Analysis, MAX_SATOSHIS};
+use common::Tx;
 
 pub(crate) fn analyse_txs(txs: &[Tx]) -> Analysis {
     let mut analysis = Analysis {
@@ -95,8 +96,6 @@ fn is_p2wpkh(scriptpubkey_type: &str) -> bool {
 mod tests {
 
     use std::collections::HashMap;
-
-    use crate::types;
 
     use super::*;
 
@@ -232,7 +231,7 @@ mod tests {
     fn analyse_tx() {
         let mut txs = vec![];
         txs.push(Tx::from_json_str(&tx_json()).unwrap());
-        txs.push(Tx::from_json_str(&types::tests::tx_json()).unwrap());
+        txs.push(Tx::from_json_str(&tests::tx_json()).unwrap());
         let anaysis = analyse_txs(&txs);
         assert_eq!(anaysis.total_num_txs, 2);
 
