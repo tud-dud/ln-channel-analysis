@@ -156,7 +156,7 @@ pub(crate) mod tests {
 
     #[test]
     fn from_csv_to_channels() {
-        let path = PathBuf::from("test_data/chanpoints.csv");
+        let path = PathBuf::from("../test_data/chanpoints.csv");
         let actual = Channel::read_from_file(&path);
         assert_eq!(actual.len(), 8);
     }
