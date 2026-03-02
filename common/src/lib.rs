@@ -14,6 +14,7 @@ pub struct Tx {
     pub txid: String,
     pub vin: Vec<Vin>,
     pub vout: Vec<Vout>,
+    pub status: Status,
 }
 
 #[derive(Debug, Deserialize)]
@@ -31,6 +32,12 @@ pub struct Prevout {
 pub struct Vout {
     pub scriptpubkey_type: String,
     pub value: u64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Status {
+    // unix timestamp
+    pub block_time: u64,
 }
 
 impl Channel {
@@ -126,5 +133,6 @@ pub mod tests {
         assert_eq!(actual.vout.len(), 2);
         assert_eq!(actual.vout[0].scriptpubkey_type, "v0_p2wsh");
         assert_eq!(actual.vout[1].scriptpubkey_type, "v1_p2tr");
+        assert_eq!(actual.status.block_time, 1771315113);
     }
 }

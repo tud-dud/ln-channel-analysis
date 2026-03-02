@@ -1,5 +1,5 @@
 [package]
-name = "channel-properties"
+name = "channel-frequency"
 version = "0.1.0"
 edition = "2024"
 authors.workspace = true
