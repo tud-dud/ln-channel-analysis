@@ -77,7 +77,9 @@ pub(crate) fn analyse_txs(txs: &[Tx]) -> Analysis {
             .iter()
             .filter(|o| is_p2wsh(&o.scriptpubkey_type) && o.value <= MAX_SATOSHIS_WUMBO)
             .count();
-        analysis.updated.num_p2wsh_output_below_10btc = num_p2wsh_outputs_below_10btc;
+        if num_p2wsh_outputs_below_10btc > 0 {
+            analysis.updated.num_p2wsh_output_below_10btc += 1;
+        }
     }
 
     analysis
