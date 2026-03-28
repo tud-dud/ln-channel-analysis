@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use serde::Serialize;
 
 pub(crate) const MAX_SATOSHIS: u64 = 16777215;
+pub(crate) const MAX_SATOSHIS_WUMBO: u64 = 1000000000;
 
 #[derive(Debug, Default, Serialize)]
 pub(crate) struct Analysis {
@@ -39,4 +40,6 @@ pub(crate) struct Updated {
     pub(crate) num_funding_output_p2tr_or_p2wsh_address: usize,
     // tx with either n <=2 outputs or n>2 outputs where 1 is P2TR and n-1 P2WSH
     pub(crate) num_either_at_most_two_or_one_p2tr_and_more_than_two_p2wsh_output_address: usize,
+    // iii)
+    pub(crate) num_p2wsh_output_below_10btc: usize,
 }

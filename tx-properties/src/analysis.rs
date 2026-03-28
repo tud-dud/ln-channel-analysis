@@ -1,6 +1,6 @@
 use log::debug;
 
-use crate::types::{Analysis, MAX_SATOSHIS};
+use crate::types::{Analysis, MAX_SATOSHIS, MAX_SATOSHIS_WUMBO};
 use common::Tx;
 
 pub(crate) fn analyse_txs(txs: &[Tx]) -> Analysis {
@@ -72,6 +72,12 @@ pub(crate) fn analyse_txs(txs: &[Tx]) -> Analysis {
         if num_p2tr_outputs + num_p2wsh_outputs == num_outputs {
             analysis.updated.num_funding_output_p2tr_or_p2wsh_address += 1;
         }
+        let num_p2wsh_outputs_below_10btc = tx
+            .vout
+            .iter()
+            .filter(|o| is_p2wsh(&o.scriptpubkey_type) && o.value <= MAX_SATOSHIS_WUMBO)
+            .count();
+        analysis.updated.num_p2wsh_output_below_10btc = num_p2wsh_outputs_below_10btc;
     }
 
     analysis
