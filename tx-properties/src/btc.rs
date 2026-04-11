@@ -11,7 +11,7 @@ use std::{
 
 use clap::Parser;
 use common::{Block, Channel, Tx};
-use log::{LevelFilter, debug, error, info, warn};
+use log::{LevelFilter, debug, error, info, trace, warn};
 use types::Analysis;
 
 mod analysis;
@@ -70,7 +70,7 @@ fn main() {
         .expect("Failure creating {} directory for results.");
     let properties_file = PathBuf::from(opt.output_path.clone()).join("btc-tx-properties.json");
     info!("Starting API queries");
-    let mut txs = vec![];
+    let mut all_txs = vec![];
     let start = Instant::now();
     for height in heights_to_analyse {
         info!("Getting block at height {}", height);
@@ -92,9 +92,9 @@ fn main() {
                         Ok(get) => match get.text() {
                             Ok(text) => {
                                 if let Some(block) = Block::from_json_str(&text) {
-                                    let block_txs = get_txs_for_block(&block, &client);
-                                    info!("received {} txs for {}", block_txs.len(), block.id);
-                                    txs.extend(block_txs);
+                                    let mut block_txs = get_txs_for_block(&block, &client);
+                                    trace!("received {} txs for {}", block_txs.len(), block.id);
+                                    all_txs.append(&mut block_txs);
                                 }
                             }
                             Err(e) => error!("Error getting text from response: {e}"),
@@ -111,18 +111,22 @@ fn main() {
     }
 
     // exclude LN
-    let prev_num_txs = txs.len();
-    txs.retain(|t| channels.contains(&t.txid));
-    let removed = prev_num_txs - txs.len();
+    let prev_num_txs = all_txs.len();
+    all_txs.retain(|t| !channels.contains(&t.txid));
+    let removed = prev_num_txs - all_txs.len();
     info!(
         "Analysing property heuristics of {} TXs after removing {} funding TXs",
-        txs.len(),
+        all_txs.len(),
         removed
     );
-    let analysis = analysis::analyse_txs(&txs);
+    let analysis = analysis::analyse_txs(&all_txs);
     let _ = write_to_file(analysis, &properties_file);
     let elapsed = start.elapsed().as_secs();
-    info!("Finished analysis of {} TXs after {}s", txs.len(), elapsed)
+    info!(
+        "Finished analysis of {} TXs after {}s",
+        all_txs.len(),
+        elapsed
+    )
 }
 
 fn get_txs_for_block(block: &Block, client: &Client) -> Vec<Tx> {
@@ -130,7 +134,6 @@ fn get_txs_for_block(block: &Block, client: &Client) -> Vec<Tx> {
     let mut curr_idx = 0;
     debug!("Will fetch {} txs from block {}", block.tx_count, block.id);
     while curr_idx < block.tx_count {
-        info!("current index = {}", curr_idx);
         match client
             .get(format!(
                 "https://blockstream.info/api/block/{}/txs/{}",
@@ -140,11 +143,10 @@ fn get_txs_for_block(block: &Block, client: &Client) -> Vec<Tx> {
         {
             Ok(get) => match get.text() {
                 Ok(text) => {
-                    if let Some(block_txs) = Tx::from_json_str_to_vec(&text) {
-                        info!("extending with {} txs", block_txs.len());
+                    if let Some(mut block_txs) = Tx::from_json_str_to_vec(&text) {
                         // has to be multiple according to api documentation
                         curr_idx = (curr_idx + block_txs.len()).next_multiple_of(25);
-                        txs.extend(block_txs);
+                        txs.append(&mut block_txs);
                     } else {
                         // avoid endless loop
                         curr_idx += 25;
@@ -163,11 +165,7 @@ fn get_txs_for_block(block: &Block, client: &Client) -> Vec<Tx> {
             }
         }
         thread::sleep(Duration::from_millis(200));
-        if curr_idx > 30 {
-            break;
-        }
     }
-    info!("got {} TXs from {}", txs.len(), block.id);
     txs
 }
 
