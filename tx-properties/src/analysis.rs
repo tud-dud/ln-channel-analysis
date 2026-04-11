@@ -1,4 +1,6 @@
-use log::debug;
+use std::{thread, time::Duration};
+
+use log::{debug, error, trace};
 
 use crate::types::{Analysis, MAX_SATOSHIS, MAX_SATOSHIS_WUMBO};
 use common::Tx;
@@ -16,11 +18,17 @@ pub(crate) fn analyse_txs(txs: &[Tx]) -> Analysis {
             .iter()
             .filter(|o| is_p2tr(&o.scriptpubkey_type))
             .count();
-        let num_p2wsh_outputs = tx
+        let p2wsh_output_addrs: Vec<_> = tx
             .vout
             .iter()
             .filter(|o| is_p2wsh(&o.scriptpubkey_type))
-            .count();
+            .map(|o| o.scriptpubkey_address.clone())
+            .collect();
+        if at_least_one_p2wsh_appears_max_once(&p2wsh_output_addrs) {
+            analysis.original.num_p2wsh_output_address_appeared_once += 1;
+            analysis.updated.num_p2wsh_output_address_appeared_once += 1;
+        }
+        let num_p2wsh_outputs = p2wsh_output_addrs.len();
         let num_p2wsh_outputs_below_16m = tx
             .vout
             .iter()
@@ -100,6 +108,54 @@ fn is_p2sh(scriptpubkey_type: &str) -> bool {
 fn is_p2wpkh(scriptpubkey_type: &str) -> bool {
     scriptpubkey_type.contains("p2wpkh")
 }
+
+// true if at least one of the addresses appeared at most once as both an input and output in the
+// blockchain
+fn at_least_one_p2wsh_appears_max_once(addrs: &[String]) -> bool {
+    let client = reqwest::blocking::Client::new();
+    for addr in addrs.iter() {
+        trace!("Querying API for {}", addr);
+        match client
+            .get(format!("https://blockstream.info/api/address/{}/txs", addr))
+            .send()
+        {
+            Ok(get) => match get.text() {
+                Ok(text) => {
+                    if let Some(txs) = Tx::from_json_str_to_vec(&text) {
+                        // check length
+                        if txs.len() <= 2 {
+                            // once as input
+                            // once as output
+                            let mut seen_as_input = 0;
+                            let mut seen_as_output = 0;
+                            for tx in txs {
+                                for vout in tx.vout {
+                                    if vout.scriptpubkey_address == *addr {
+                                        seen_as_output += 1;
+                                    }
+                                }
+                                for vin in tx.vin {
+                                    if vin.prevout.scriptpubkey_address == *addr {
+                                        seen_as_input += 1;
+                                    }
+                                }
+                            }
+                            if seen_as_input + seen_as_output <= 2 {
+                                return true;
+                            }
+                        }
+                    }
+                }
+                Err(e) => error!("Error getting text from response: {e}"),
+            },
+            Err(e) => error!("API get failed: {e}"),
+        }
+        // avoid rate limit
+        thread::sleep(Duration::from_millis(250));
+    }
+    false
+}
+
 #[cfg(test)]
 mod tests {
 

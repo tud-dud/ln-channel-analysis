@@ -23,6 +23,7 @@ pub(crate) struct Original {
     pub(crate) num_p2wsh_output_below_16m: usize,
     // v)
     pub(crate) num_funded_by_p2sh_or_p2wpkh_address: usize,
+    pub(crate) num_p2wsh_output_address_appeared_once: usize,
 }
 
 #[derive(Debug, Default, Serialize)]
@@ -42,4 +43,5 @@ pub(crate) struct Updated {
     pub(crate) num_either_at_most_two_or_one_p2tr_and_more_than_two_p2wsh_output_address: usize,
     // iii)
     pub(crate) num_p2wsh_output_below_10btc: usize,
+    pub(crate) num_p2wsh_output_address_appeared_once: usize,
 }
