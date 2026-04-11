@@ -42,6 +42,12 @@ pub struct Status {
     pub block_time: u64,
 }
 
+#[derive(Debug, Deserialize, PartialEq)]
+pub struct Block {
+    pub id: String,
+    pub tx_count: usize,
+}
+
 impl Channel {
     pub fn read_from_file(path: &PathBuf) -> HashSet<Self> {
         let mut channels = HashSet::new();
@@ -60,6 +66,12 @@ impl Tx {
         serde_json::from_str(json).ok()
     }
     pub fn from_json_str_to_vec(json: &str) -> Option<Vec<Self>> {
+        serde_json::from_str(json).ok()
+    }
+}
+
+impl Block {
+    pub fn from_json_str(json: &str) -> Option<Self> {
         serde_json::from_str(json).ok()
     }
 }
@@ -251,5 +263,31 @@ pub mod tests {
             tx.vin[2].prevout.scriptpubkey_address,
             "bc1qmwn9l3fhdy87tfwgvcslas9gz5c6ngwvckek7p",
         );
+    }
+    #[test]
+    fn from_json_to_block() {
+        let block = r#"
+        {
+            "id": "000000000000000000014dc0a00c0d52a93f4887e23640add011d7a35b1370d1",
+            "height": 935175,
+            "version": 574849024,
+            "timestamp": 1770332641,
+            "tx_count": 3146,
+            "size": 1569035,
+            "weight": 3993845,
+            "merkle_root": "45b1e743e2b099f479ff137daf509873e233e85cbe48a13f6a4896dfd318aa8f",
+            "previousblockhash": "0000000000000000000102aa9ed650428f6ddfe82c0695441c121eb7cea7d384",
+            "mediantime": 1770328706,
+            "nonce": 2988372612,
+            "bits": 386006177,
+            "difficulty": 141668107417558.25
+        }"#
+        .to_owned();
+        let expected = Block {
+            id: "000000000000000000014dc0a00c0d52a93f4887e23640add011d7a35b1370d1".to_owned(),
+            tx_count: 3146,
+        };
+        let actual = Block::from_json_str(&block).unwrap();
+        assert_eq!(actual, expected);
     }
 }

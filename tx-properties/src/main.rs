@@ -29,14 +29,14 @@ fn main() {
     let opt = Opt::parse();
     let log_level = opt.log_level;
     env_logger::builder().filter_level(log_level).init();
-    let start = Instant::now();
     let channels = Channel::read_from_file(&opt.chanpoints);
     let client = reqwest::blocking::Client::new();
     std::fs::create_dir_all(opt.output_path.clone())
         .expect("Failure creating {} directory for results.");
-    let properties_file = PathBuf::from(opt.output_path.clone()).join("tx-properties.json");
+    let properties_file = PathBuf::from(opt.output_path.clone()).join("ln-tx-properties.json");
     info!("Querying API for {} channels", channels.len());
     let mut txs = vec![];
+    let start = Instant::now();
     for channel in channels.iter() {
         trace!("Querying API for {}", channel.funding_txid);
         match client

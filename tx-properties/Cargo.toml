@@ -4,12 +4,22 @@ version = "0.1.0"
 edition = "2024"
 authors.workspace = true
 license.workspace = true
+default-run = "channel-properties"
+
+[[bin]]
+name = "channel-properties"
+path = "src/main.rs"
+
+[[bin]]
+name = "btc-properties"
+path = "src/btc.rs"
 
 [dependencies]
 clap = { workspace = true}
 common = { path = "../common/"}
 env_logger = "0.11.8"
 log = { workspace = true}
+rand = "0.10.0"
 reqwest = { workspace = true}
 serde = { workspace = true}
 serde_json = { workspace = true}
