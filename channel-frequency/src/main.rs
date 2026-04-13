@@ -14,6 +14,9 @@ use types::{API_CALLS, Analysis};
 mod analysis;
 mod types;
 
+const BLOCK_START: u64 = 935175;
+const BLOCK_END: u64 = 943421;
+
 #[derive(Debug, Parser)]
 struct Opt {
     /// Path to the CSV with the channel points
@@ -49,7 +52,10 @@ fn main() {
         {
             Ok(get) => match get.text() {
                 Ok(text) => {
-                    if let Some(tx) = Tx::from_json_str(&text) {
+                    if let Some(tx) = Tx::from_json_str(&text)
+                        && tx.status.block_height >= BLOCK_START
+                        && tx.status.block_height <= BLOCK_END
+                    {
                         txs.push(tx);
                     }
                 }
