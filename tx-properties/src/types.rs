@@ -1,9 +1,14 @@
+use std::cell::Cell;
 use std::collections::HashMap;
 
 use serde::Serialize;
 
 pub(crate) const MAX_SATOSHIS: u64 = 16777215;
 pub(crate) const MAX_SATOSHIS_WUMBO: u64 = 1000000000;
+
+thread_local! {
+    pub static API_CALLS: Cell<u64> =const { Cell::new(0) };
+}
 
 #[derive(Debug, Default, Serialize)]
 pub(crate) struct Analysis {

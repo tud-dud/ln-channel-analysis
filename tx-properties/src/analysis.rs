@@ -1,8 +1,8 @@
 use std::{thread, time::Duration};
 
-use log::{debug, error, trace};
+use log::{debug, error, info, trace};
 
-use crate::types::{Analysis, MAX_SATOSHIS, MAX_SATOSHIS_WUMBO};
+use crate::types::{API_CALLS, Analysis, MAX_SATOSHIS, MAX_SATOSHIS_WUMBO};
 use common::Tx;
 
 pub(crate) fn analyse_txs(txs: &[Tx]) -> Analysis {
@@ -141,6 +141,8 @@ fn at_least_one_p2wsh_appears_max_once(addrs: &[String]) -> bool {
                                 }
                             }
                             if seen_as_input + seen_as_output <= 2 {
+                                API_CALLS.with(|c| c.set(c.get() + 1));
+                                thread::sleep(Duration::from_millis(250));
                                 return true;
                             }
                         }
@@ -151,7 +153,17 @@ fn at_least_one_p2wsh_appears_max_once(addrs: &[String]) -> bool {
             Err(e) => error!("API get failed: {e}"),
         }
         // avoid rate limit
-        thread::sleep(Duration::from_millis(250));
+        API_CALLS.with(|c| c.set(c.get() + 1));
+        let api_calls = API_CALLS.with(|c| c.get());
+        // max 700/hour
+        let sleep = if api_calls >= 650 {
+            info!("Sleeping for one hour after {api_calls} calls because of rate limit");
+            API_CALLS.with(|c| c.set(0));
+            3600000
+        } else {
+            250
+        };
+        thread::sleep(Duration::from_millis(sleep));
     }
     false
 }
