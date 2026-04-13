@@ -40,6 +40,7 @@ pub struct Vout {
 pub struct Status {
     // unix timestamp
     pub block_time: u64,
+    pub block_height: u64,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]

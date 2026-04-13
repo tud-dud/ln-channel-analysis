@@ -84,7 +84,6 @@ fn main() {
             Ok(get) => match get.text() {
                 Ok(hash) => {
                     // we can get this blocks txs
-                    info!("get block {}", hash);
                     match client
                         .get(format!("https://blockstream.info/api/block/{}", hash))
                         .send()

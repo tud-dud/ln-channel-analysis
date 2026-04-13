@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use log::debug;
 
 use crate::types::Analysis;
@@ -25,9 +27,28 @@ pub(crate) fn analyse_frequency(txs: &[Tx]) -> Analysis {
             let mid = sorted_pairs.len() / 2;
             (sorted_pairs[mid - 1] as f64 + sorted_pairs[mid] as f64) / 2.0
         };
+        analysis.num_txs_same_block = get_txs_per_blockheight(txs);
     }
 
     analysis
+}
+
+fn get_txs_per_blockheight(txs: &[Tx]) -> HashMap<usize, usize> {
+    let mut num_n_txs_same_block: HashMap<usize, usize> = HashMap::new();
+    let mut txs_per_blockheight: HashMap<u64, usize> = HashMap::new();
+    for tx in txs {
+        txs_per_blockheight
+            .entry(tx.status.block_height)
+            .and_modify(|v| *v += 1)
+            .or_insert(1);
+    }
+    for num_txs in txs_per_blockheight.values() {
+        num_n_txs_same_block
+            .entry(*num_txs)
+            .and_modify(|v| *v += 1)
+            .or_insert(1);
+    }
+    num_n_txs_same_block
 }
 
 #[cfg(test)]
@@ -73,7 +94,7 @@ mod tests {
           "fee": 768,
           "status": {
             "confirmed": true,
-            "block_height": 937004,
+            "block_height": 937014,
             "block_hash": "000000000000000000012365801d776174e143288fad3839aa80e7aef0699e62",
             "block_time": 1771315113
           }
@@ -118,7 +139,15 @@ mod tests {
             max_secs: 18291,
             median_secs: 9195.5,
             mean_secs: 9195.5,
+            num_txs_same_block: HashMap::from([(2, 2), (2, 1)]),
         };
-        assert_eq!(actual, expected);
+        assert_eq!(actual.total_num_txs, expected.total_num_txs);
+        assert_eq!(actual.min_secs, expected.min_secs);
+        assert_eq!(actual.max_secs, expected.max_secs);
+        assert_eq!(actual.median_secs, expected.median_secs);
+        assert_eq!(actual.mean_secs, expected.mean_secs);
+        for (k, v) in expected.num_txs_same_block {
+            assert_eq!(actual.num_txs_same_block[&k], v);
+        }
     }
 }

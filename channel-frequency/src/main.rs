@@ -9,7 +9,7 @@ use std::{
 use clap::Parser;
 use common::{Channel, Tx};
 use log::{LevelFilter, error, info, trace};
-use types::Analysis;
+use types::{API_CALLS, Analysis};
 
 mod analysis;
 mod types;
@@ -58,7 +58,17 @@ fn main() {
             Err(e) => error!("API get failed: {e}"),
         }
         // avoid rate limit
-        thread::sleep(Duration::from_millis(250));
+        API_CALLS.with(|c| c.set(c.get() + 1));
+        let api_calls = API_CALLS.with(|c| c.get());
+        // max 700/hour
+        let sleep = if api_calls >= 650 {
+            info!("Sleeping for one hour after {api_calls} calls because of rate limit");
+            API_CALLS.with(|c| c.set(0));
+            3600000
+        } else {
+            250
+        };
+        thread::sleep(Duration::from_millis(sleep));
     }
     info!("Analysing channel opening frequency of {} TXs", txs.len());
     let analysis = analysis::analyse_frequency(&txs);
